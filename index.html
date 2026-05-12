@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Método de Transporte</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Método de Transporte</h1>
+
+        <div class="controls">
+            <label>Filas:</label>
+            <input type="number" id="rows" value="3">
+
+            <label>Columnas:</label>
+            <input type="number" id="cols" value="3">
+
+            <button onclick="crearTabla()">Generar Tabla</button>
+        </div>
+
+        <div id="tabla-container"></div>
+
+        <div class="resolver-section">
+            <select id="metodo">
+                <option value="noroeste">Esquina Noroeste</option>
+            </select>
+            <button onclick="resolver()">Resolver</button>
+        </div>
+
+        <div id="resultado"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
