@@ -17,7 +17,7 @@
                 Metodo
                 <select id="metodo" onchange="cambiarMetodo()">
                     <option value="transporte">Transporte - Esquina Noroeste</option>
-                    <option value="simplex">Simplex - Minimizacion</option>
+                    <option value="simplex">Simplex</option>
                 </select>
             </label>
         </header>
@@ -45,8 +45,15 @@
 
         <section id="simplex-panel" class="method-panel hidden">
             <div class="card">
-                <h2>Metodo simplex para minimizar</h2>
+                <h2>Metodo simplex</h2>
                 <div class="controls">
+                    <label>Tipo
+                        <select id="simplex-type" onchange="crearTablaSimplex()">
+                            <option value="min">Minimizacion</option>
+                            <option value="max">Maximizacion</option>
+                        </select>
+                    </label>
+
                     <label>Variables
                         <input type="number" id="simplex-vars" min="1" value="2">
                     </label>

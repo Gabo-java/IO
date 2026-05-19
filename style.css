@@ -352,6 +352,18 @@ td input {
     text-align: center;
 }
 
+.transport-note {
+    background: var(--soft-orange);
+    border-left: 5px solid #f79009;
+    border-radius: 6px;
+    color: #9a3412;
+    font-weight: 700;
+    margin: 14px auto 0;
+    max-width: 720px;
+    padding: 12px 14px;
+    text-align: center;
+}
+
 .result-placeholder {
     color: var(--muted);
 }

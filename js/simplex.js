@@ -44,6 +44,11 @@ class SimplexMinSolver {
         this.optimal = false;
         this.infeasible = false;
         this.status = "No resuelto";
+        this.type = "min";
+        this.objectiveLabel = "Min";
+        this.zLabel = "Z minimo";
+        this.constraintSymbol = ">=";
+        this.restrictionMeasureLabel = "Exceso";
     }
 
     computeRows() {
@@ -203,13 +208,126 @@ class SimplexMinSolver {
     }
 }
 
+class SimplexMaxSolver extends SimplexMinSolver {
+    constructor(c, A, b) {
+        super(c, A, b);
+
+        this.type = "max";
+        this.objectiveLabel = "Max";
+        this.zLabel = "Z maximo";
+        this.constraintSymbol = "<=";
+        this.restrictionMeasureLabel = "Holgura";
+        this.eNames = Array.from({ length: this.m }, (_, index) => `H${index + 1}`);
+        this.varNames = [...this.xNames, ...this.eNames];
+        this.cj = [...this.originalC, ...Array.from({ length: this.m }, () => FractionValue.zero())];
+
+        this.rows = [];
+        for (let i = 0; i < this.m; i++) {
+            const row = [...this.originalA[i]];
+            for (let k = 0; k < this.m; k++) {
+                row.push(k === i ? new FractionValue(1n) : FractionValue.zero());
+            }
+            this.rows.push(row);
+        }
+
+        this.b = [...this.originalB];
+        this.basis = Array.from({ length: this.m }, (_, index) => this.n + index);
+        this.iterations = [];
+        this.optimal = false;
+        this.infeasible = false;
+        this.unbounded = false;
+        this.status = "No resuelto";
+    }
+
+    chooseEnteringCol(cz) {
+        let enter = null;
+        for (let j = 0; j < cz.length; j++) {
+            if (cz[j].compare(FractionValue.zero()) > 0 && (enter === null || cz[j].compare(cz[enter]) > 0)) {
+                enter = j;
+            }
+        }
+        return enter;
+    }
+
+    chooseLeavingRow(enterCol) {
+        const ratios = Array.from({ length: this.m }, () => "");
+        const candidates = [];
+
+        for (let i = 0; i < this.m; i++) {
+            const aij = this.rows[i][enterCol];
+            if (aij.compare(FractionValue.zero()) > 0) {
+                const ratio = this.b[i].div(aij);
+                ratios[i] = ratio.toString();
+                candidates.push({ ratio, row: i });
+            }
+        }
+
+        if (candidates.length === 0) {
+            return { leave: null, ratios };
+        }
+
+        candidates.sort((a, b) => {
+            const comparison = a.ratio.compare(b.ratio);
+            return comparison === 0 ? a.row - b.row : comparison;
+        });
+
+        return { leave: candidates[0].row, ratios };
+    }
+
+    solve(maxIterations = 50) {
+        for (let iteration = 0; iteration <= maxIterations; iteration++) {
+            const computed = this.computeRows();
+            const enter = this.chooseEnteringCol(computed.cz);
+
+            if (enter === null) {
+                this.saveState(iteration, computed);
+                this.optimal = true;
+                this.status = "Optimo";
+                return;
+            }
+
+            const { leave, ratios } = this.chooseLeavingRow(enter);
+            if (leave === null) {
+                this.saveState(iteration, computed, null, enter, ratios, null);
+                this.unbounded = true;
+                this.status = "Problema no acotado";
+                return;
+            }
+
+            const pivot = this.rows[leave][enter];
+            this.saveState(iteration, computed, leave, enter, ratios, pivot);
+            this.pivot(leave, enter);
+        }
+
+        this.status = "Maximo numero de iteraciones alcanzado";
+    }
+
+    getSolution() {
+        const solution = super.getSolution();
+        solution.excesses = [];
+
+        for (let i = 0; i < this.m; i++) {
+            let lhs = FractionValue.zero();
+            for (let j = 0; j < this.n; j++) {
+                lhs = lhs.add(this.originalA[i][j].mul(solution.xValues[j]));
+            }
+            solution.excesses.push(this.originalB[i].sub(lhs));
+        }
+
+        return solution;
+    }
+}
+
 function crearTablaSimplex() {
     const variables = parsePositiveInteger("simplex-vars", "variables");
     const restrictions = parsePositiveInteger("simplex-res", "restricciones");
+    const type = getSimplexType();
+    const objectiveLabel = type === "max" ? "Max" : "Min";
+    const operator = type === "max" ? "<=" : ">=";
     let html = '<div class="simplex-block">';
 
     html += '<h3>Funcion objetivo</h3>';
-    html += '<div class="objective-row"><span class="math-label">Min Z =</span>';
+    html += `<div class="objective-row"><span class="math-label">${objectiveLabel} Z =</span>`;
     for (let j = 0; j < variables; j++) {
         html += `
             <input type="text" id="obj_${j}" value="0" inputmode="decimal">
@@ -229,7 +347,7 @@ function crearTablaSimplex() {
                 ${j < variables - 1 ? '<span class="operator">+</span>' : ""}
             `;
         }
-        html += `<span class="operator">>=</span><input type="text" id="b_${i}" value="0" inputmode="decimal"></div>`;
+        html += `<span class="operator">${operator}</span><input type="text" id="b_${i}" value="0" inputmode="decimal"></div>`;
     }
 
     html += "</div>";
@@ -237,9 +355,25 @@ function crearTablaSimplex() {
 }
 
 function cargarEjemploSimplex() {
+    const type = getSimplexType();
     document.getElementById("simplex-vars").value = 2;
-    document.getElementById("simplex-res").value = 2;
+    document.getElementById("simplex-res").value = type === "max" ? 3 : 2;
     crearTablaSimplex();
+
+    if (type === "max") {
+        document.getElementById("obj_0").value = "3";
+        document.getElementById("obj_1").value = "5";
+        document.getElementById("a_0_0").value = "2";
+        document.getElementById("a_0_1").value = "3";
+        document.getElementById("b_0").value = "8";
+        document.getElementById("a_1_0").value = "2";
+        document.getElementById("a_1_1").value = "1";
+        document.getElementById("b_1").value = "6";
+        document.getElementById("a_2_0").value = "1";
+        document.getElementById("a_2_1").value = "2";
+        document.getElementById("b_2").value = "6";
+        return;
+    }
 
     document.getElementById("obj_0").value = "2";
     document.getElementById("obj_1").value = "3";
@@ -271,9 +405,15 @@ function resolverSimplex() {
         b.push(FractionValue.parse(document.getElementById(`b_${i}`).value));
     }
 
-    const solver = new SimplexMinSolver(c, A, b);
+    const solver = getSimplexType() === "max"
+        ? new SimplexMaxSolver(c, A, b)
+        : new SimplexMinSolver(c, A, b);
     solver.solve();
     renderSimplexResult(solver);
+}
+
+function getSimplexType() {
+    return document.getElementById("simplex-type")?.value || "min";
 }
 
 function renderSimplexResult(solver) {
@@ -287,7 +427,7 @@ function renderSimplexResult(solver) {
             <h3>Resumen</h3>
             <p><strong>Estado:</strong> ${solver.status}</p>
             <p><strong>Iteraciones:</strong> ${solver.iterations.length}</p>
-            <p><strong>Z minimo:</strong> ${solution ? solution.z.toMixedString() : "-"}</p>
+            <p><strong>${solver.zLabel}:</strong> ${solution ? solution.z.toMixedString() : "-"}</p>
         </div>
     `;
 
@@ -308,7 +448,7 @@ function renderModelCard(solver) {
         }).join(" + ");
 
         return `
-            <p><strong>R${rowIndex + 1}:</strong> ${lhs} >= ${solver.originalB[rowIndex].toString()}</p>
+            <p><strong>R${rowIndex + 1}:</strong> ${lhs} ${solver.constraintSymbol} ${solver.originalB[rowIndex].toString()}</p>
         `;
     }).join("");
 
@@ -318,7 +458,7 @@ function renderModelCard(solver) {
         <div class="result-section">
             <div class="model-summary-box">
                 <h3>Modelo ingresado</h3>
-                <p><strong>Funcion objetivo:</strong> Min Z = ${objective}</p>
+                <p><strong>Funcion objetivo:</strong> ${solver.objectiveLabel} Z = ${objective}</p>
                 <p><strong>Restricciones:</strong></p>
                 ${constraints}
                 <p><strong>R${solver.m + 1}:</strong> ${nonNegativeRestriction} >= 0</p>
@@ -330,6 +470,10 @@ function renderModelCard(solver) {
 function renderSolutionTables(solver, solution) {
     if (solver.infeasible) {
         return '<div class="error-box">El problema es infactible.</div>';
+    }
+
+    if (solver.unbounded) {
+        return '<div class="error-box">El problema es no acotado.</div>';
     }
 
     if (!solver.optimal) {
@@ -345,14 +489,14 @@ function renderSolutionTables(solver, solution) {
     let excessRows = "";
     for (let i = 0; i < solution.excesses.length; i++) {
         const excess = solution.excesses[i];
-        const state = excess.isZero() ? "Activa" : "Con exceso";
+        const state = excess.isZero() ? "Activa" : `Con ${solver.restrictionMeasureLabel.toLowerCase()}`;
         excessRows += `<tr><td>R${i + 1}</td><td>${excess.toString()}</td><td>${excess.toDecimal()}</td><td>${state}</td></tr>`;
     }
 
     return `
         <div class="result-section">
             <h3>Solucion optima</h3>
-            <div class="optimal-z">Z minimo = ${solution.z.toMixedString()}</div>
+            <div class="optimal-z">${solver.zLabel} = ${solution.z.toMixedString()}</div>
             <div class="result-grid">
                 <div class="table-wrap">
                     <table class="mini-table">
@@ -362,7 +506,7 @@ function renderSolutionTables(solver, solution) {
                 </div>
                 <div class="table-wrap">
                     <table class="mini-table">
-                        <tr><th>Restriccion</th><th>Exceso</th><th>Decimal</th><th>Estado</th></tr>
+                        <tr><th>Restriccion</th><th>${solver.restrictionMeasureLabel}</th><th>Decimal</th><th>Estado</th></tr>
                         ${excessRows}
                     </table>
                 </div>
@@ -381,18 +525,22 @@ function renderIterations(solver) {
         let note = "";
         let ratiosText = "";
 
-        if (state.leave === null) {
+        if (state.leave === null && solver.type === "min") {
             note = "Todos los valores del lado derecho son no negativos. Se alcanzo la solucion optima.";
+        } else if (state.leave === null && solver.type === "max" && state.enter === null) {
+            note = "No quedan valores positivos en Cj-Zj. Se alcanzo la solucion optima.";
         } else if (state.enter === null) {
             note = `Fila saliente: ${state.leave + 1}. No existe columna pivote valida.`;
         } else {
-            const leavingName = solver.varNames[state.basis[state.leave]];
             const enteringName = solver.varNames[state.enter];
-            const ratioParts = state.ratios
-                .map((value, index) => value === "" ? "" : `${solver.varNames[index]} = ${value}`)
-                .filter(Boolean);
+            const ratioParts = buildRatioParts(solver, state);
 
-            note = `Fila saliente: ${state.leave + 1} (${leavingName}) | Variable entrante: ${enteringName} | Pivote: ${state.pivot.toString()}`;
+            if (state.leave === null) {
+                note = `Variable entrante: ${enteringName}. No existe fila saliente valida.`;
+            } else {
+                const leavingName = solver.varNames[state.basis[state.leave]];
+                note = `Fila saliente: ${state.leave + 1} (${leavingName}) | Variable entrante: ${enteringName} | Pivote: ${state.pivot.toString()}`;
+            }
             ratiosText = ratioParts.length > 0 ? `<p class="ratio-note">Razones de seleccion: ${ratioParts.join(" | ")}</p>` : "";
         }
 
@@ -409,6 +557,18 @@ function renderIterations(solver) {
     }
     html += "</div>";
     return html;
+}
+
+function buildRatioParts(solver, state) {
+    if (solver.type === "max") {
+        return state.ratios
+            .map((value, index) => value === "" ? "" : `Fila ${index + 1} = ${value}`)
+            .filter(Boolean);
+    }
+
+    return state.ratios
+        .map((value, index) => value === "" ? "" : `${solver.varNames[index]} = ${value}`)
+        .filter(Boolean);
 }
 
 function renderIterationTable(solver, state) {
