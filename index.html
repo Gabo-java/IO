@@ -2,35 +2,79 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Método de Transporte</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metodos de optimizacion</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Método de Transporte</h1>
+    <main class="container">
+        <header class="app-header">
+            <div>
+                <h1>Metodos de optimizacion</h1>
+            </div>
 
-        <div class="controls">
-            <label>Filas:</label>
-            <input type="number" id="rows" value="3">
+            <label class="method-picker">
+                Metodo
+                <select id="metodo" onchange="cambiarMetodo()">
+                    <option value="transporte">Transporte - Esquina Noroeste</option>
+                    <option value="simplex">Simplex - Minimizacion</option>
+                </select>
+            </label>
+        </header>
 
-            <label>Columnas:</label>
-            <input type="number" id="cols" value="3">
+        <section id="transporte-panel" class="method-panel">
+            <div class="card">
+                <h2>Metodo de transporte</h2>
+                <div class="controls">
+                    <label>Filas
+                        <input type="number" id="rows" min="1" value="3">
+                    </label>
 
-            <button onclick="crearTabla()">Generar Tabla</button>
-        </div>
+                    <label>Columnas
+                        <input type="number" id="cols" min="1" value="3">
+                    </label>
 
-        <div id="tabla-container"></div>
+                    <button onclick="crearTablaTransporte()">Generar tabla</button>
+                    <button onclick="cargarEjemploTransporte()">Cargar ejemplo</button>
+                    <button onclick="resolver()">Resolver</button>
+                </div>
 
-        <div class="resolver-section">
-            <select id="metodo">
-                <option value="noroeste">Esquina Noroeste</option>
-            </select>
-            <button onclick="resolver()">Resolver</button>
-        </div>
+                <div id="tabla-container"></div>
+            </div>
+        </section>
 
-        <div id="resultado"></div>
-    </div>
+        <section id="simplex-panel" class="method-panel hidden">
+            <div class="card">
+                <h2>Metodo simplex para minimizar</h2>
+                <div class="controls">
+                    <label>Variables
+                        <input type="number" id="simplex-vars" min="1" value="2">
+                    </label>
 
+                    <label>Restricciones
+                        <input type="number" id="simplex-res" min="1" value="2">
+                    </label>
+
+                    <button onclick="crearTablaSimplex()">Generar tabla</button>
+                    <button onclick="cargarEjemploSimplex()">Cargar ejemplo</button>
+                    <button onclick="resolver()">Resolver</button>
+                </div>
+
+                <div id="simplex-form"></div>
+            </div>
+        </section>
+
+        <section class="card results-card">
+            <h2>Resultado</h2>
+            <div id="resultado" class="result-placeholder">
+                Selecciona un metodo, ingresa los datos y presiona Resolver.
+            </div>
+        </section>
+    </main>
+
+    <script src="js/utils.js"></script>
+    <script src="js/transporte.js"></script>
+    <script src="js/simplex.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
